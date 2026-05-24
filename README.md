@@ -1,5 +1,4 @@
 # OPPO-A57-Flashing-Tool-C-Language-Version
-# OPPO A57 专业刷机工具（C语言版）介绍文档
 ## 一、工具概述
 **OPPO A57 刷机工具** 是一款专为 **OPPO A57（2016）** 开发的**深度刷机程序**，基于**高通9008 EDL（Emergency Download）** 底层刷机协议构建，全程本地化运行，无网络依赖，适配Windows平台，是系统崩溃、变砖修复的专用工具。
 
