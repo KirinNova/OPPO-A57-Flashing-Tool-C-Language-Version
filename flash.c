@@ -2,18 +2,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <direct.h>
 #include <ctype.h>
 
-// ====================== È«¾ÖÅäÖÃ ======================
-// Ë¢»úÏà¹ØÂ·¾¶
 #define FIREHOSE_FILE  "Firehose\\prog_emmc_firehose_8937_ddr.mbn"
 #define RAWPROGRAM     "lk2nd\\rawprogram0.xml"
 #define EDL_TOOL       "bin\\edl.exe"
 #define ADB_TOOL       "bin\\adb.exe"
 #define FASTBOOT_TOOL  "bin\\fastboot.exe"
 
-// MD5 Ğ£ÑéÅäÖÃ
 #define MD5_EDL        "33302AF4A273D1D96304ACDF4E82882B"
 #define MD5_FIREHOSE   "1626142BED4069F2B9E7F1D14DF86200"
 #define MD5_RAWPROGRAM "bac2616127d998a79479e753c800a0fc"
@@ -23,48 +19,183 @@
 #define MD5_RECOVERY   "543afe53dad6baae5a7a5072f0b0a59a"
 #define MD5_ABOOT      "76f37ec7d6a006cb76bbce39beb898d5"
 
-// º¯ÊıÉùÃ÷
+#define COLOR_RED      (FOREGROUND_RED | FOREGROUND_INTENSITY)
+#define COLOR_GREEN    (FOREGROUND_GREEN | FOREGROUND_INTENSITY)
+#define COLOR_DEFAULT  (FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE)
+
 int CheckFileExist(const char* path);
 int CheckMD5Empty();
 int CheckMD5(const char* filePath, const char* expectMD5, const char* desc);
 int RetryOrExit(const char* errorStage);
 int DetectFastboot(int timeoutSec);
 int DetectADB(int timeoutSec);
+int DetectEDL();
+void WaitDevice(int type, const char* name);
 void FixWifiAndTime();
 void SystemPause();
+void ShowLogo();
+void ClearCurrentLine();
+void SetConsoleColor(WORD color);
+
+void ShowLogo()
+{
+    printf("\n");
+    printf("   â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•— â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•—â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•— â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•—â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•—â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•—  â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•—\n");
+    printf("   â–ˆâ–ˆâ•”â•â•â–ˆâ–ˆâ•—â–ˆâ–ˆâ•”â•â•â•â•â•â–ˆâ–ˆâ•”â•â•â–ˆâ–ˆâ•—â–ˆâ–ˆâ•”â•â•â•â•â•â–ˆâ–ˆâ•”â•â•â•â•â•â–ˆâ–ˆâ•”â•â•â–ˆâ–ˆâ•—â•šâ•â•â–ˆâ–ˆâ•”â•â•â•\n");
+    printf("   â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•”â•â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•—  â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•”â•â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•—â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•—  â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•”â•   â–ˆâ–ˆâ•‘   \n");
+    printf("   â–ˆâ–ˆâ•”â•â•â–ˆâ–ˆâ•—â–ˆâ–ˆâ•”â•â•â•  â–ˆâ–ˆâ•”â•â•â–ˆâ–ˆâ•—â•šâ•â•â•â•â–ˆâ–ˆâ•‘â–ˆâ–ˆâ•”â•â•â•  â–ˆâ–ˆâ•”â•â•â–ˆâ–ˆâ•—   â–ˆâ–ˆâ•‘   \n");
+    printf("   â–ˆâ–ˆâ•‘  â–ˆâ–ˆâ•‘â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•—â–ˆâ–ˆâ•‘  â–ˆâ–ˆâ•‘â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•‘â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•—â–ˆâ–ˆâ•‘  â–ˆâ–ˆâ•‘   â–ˆâ–ˆâ•‘   \n");
+    printf("   â•šâ•â•  â•šâ•â•â•šâ•â•â•â•â•â•â•â•šâ•â•  â•šâ•â•â•šâ•â•â•â•â•â•â•â•šâ•â•â•â•â•â•â•â•šâ•â•  â•šâ•â•   â•šâ•â•   \n");
+    printf("\n");
+    printf("                    OPPO A57 åˆ·æœºå·¥å…·                        \n");
+    printf("-----------------------------------------------------------\n\n");
+}
+
+void SetConsoleColor(WORD color)
+{
+    HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+    SetConsoleTextAttribute(hConsole, color);
+}
+
+int DetectEDL()
+{
+    char buf[1024] = {0};
+    FILE* fp = _popen("wmic path Win32_PnPEntity get Name 2>nul", "r");
+    if (fp)
+    {
+        while (fgets(buf, sizeof(buf), fp))
+        {
+            if (strstr(buf, "Qualcomm HS-USB QDLoader 9008") || 
+                strstr(buf, "QDLoader 9008") ||
+                strstr(buf, "9008"))
+            {
+                _pclose(fp);
+                return 1;
+            }
+        }
+        _pclose(fp);
+    }
+    int ret = system(EDL_TOOL" -p >nul 2>&1");
+    return (ret == 0);
+}
+
+void ClearCurrentLine()
+{
+    printf("\r");
+    for (int i = 0; i < 80; i++) printf(" ");
+    printf("\r");
+}
+
+void WaitDevice(int type, const char* name)
+{
+    int lastDriverState = -1;
+    int ok = 0;
+
+    system("cls");
+    ShowLogo();
+    printf("[ç­‰å¾…è®¾å¤‡] è¯·å°†æ‰‹æœºè¿›å…¥: %s æ¨¡å¼\n", name);
+    printf("-----------------------------------------------------------\n");
+
+    while (1)
+    {
+        ok = 0;
+        int currentDriverState = 0;
+
+        if (type == 0)
+        {
+            ok = DetectEDL();
+            if (!ok)
+            {
+                FILE* fp = _popen("wmic path Win32_PnPEntity get Name 2>nul", "r");
+                if (fp)
+                {
+                    char buf[1024];
+                    while (fgets(buf, sizeof(buf), fp))
+                    {
+                        if (strstr(buf, "PCIæ•°æ®æ•è·å’Œä¿¡å·å¤„ç†æ§åˆ¶å™¨") || 
+                            strstr(buf, "æœªçŸ¥è®¾å¤‡"))
+                        {
+                            currentDriverState = 1;
+                            break;
+                        }
+                    }
+                    _pclose(fp);
+                }
+            }
+        }
+        else if (type == 1) ok = DetectFastboot(1);
+        else                ok = DetectADB(1);
+
+        if (ok)
+        {
+            ClearCurrentLine();
+            SetConsoleColor(COLOR_GREEN);
+            printf("[çŠ¶æ€] %s è®¾å¤‡å·²è¿æ¥ï¼", name);
+            SetConsoleColor(COLOR_DEFAULT);
+            printf("\n");
+            printf("-----------------------------------------------------------\n");
+            printf("æŒ‰ä»»æ„é”®ç»§ç»­...\n");
+            SystemPause();
+            break;
+        }
+        else
+        {
+            if (type == 0 && currentDriverState != lastDriverState)
+            {
+                system("cls");
+                ShowLogo();
+                printf("[ç­‰å¾…è®¾å¤‡] è¯·å°†æ‰‹æœºè¿›å…¥: %s æ¨¡å¼\n", name);
+                printf("-----------------------------------------------------------\n");
+                
+                if (currentDriverState)
+                {
+                    printf("\n  [é‡è¦è­¦å‘Š] æ£€æµ‹åˆ°æœªå®‰è£…é©±åŠ¨çš„9008è®¾å¤‡ï¼\n");
+                    printf("-----------------------------------------------------------\n");
+                    printf("è®¾å¤‡å·²è¿›å…¥9008æ¨¡å¼ï¼Œä½†é«˜é€šé©±åŠ¨æœªæ­£ç¡®å®‰è£…\n");
+                    printf("è¯·å…ˆå®‰è£… Qualcomm HS-USB QDLoader 9008 é©±åŠ¨\n");
+                    printf("å®‰è£…å®Œæˆåè¯·é‡æ–°æ’æ‹”USBçº¿\n");
+                    printf("-----------------------------------------------------------\n");
+                }
+                lastDriverState = currentDriverState;
+            }
+
+            ClearCurrentLine();
+            SetConsoleColor(COLOR_RED);
+            if (type == 0 && currentDriverState)
+            {
+                printf("[çŠ¶æ€] ç­‰å¾…å®‰è£…é©±åŠ¨å¹¶é‡æ–°æ’æ‹”è®¾å¤‡...");
+            }
+            else
+            {
+                printf("[çŠ¶æ€] æœªæ£€æµ‹åˆ° %s è®¾å¤‡ï¼Œè¯·è¿æ¥æ‰‹æœºå¹¶è¿›å…¥å¯¹åº”æ¨¡å¼...", name);
+            }
+            SetConsoleColor(COLOR_DEFAULT);
+            fflush(stdout);
+            Sleep(1000);
+        }
+    }
+}
 
 int main()
 {
- 
     system("chcp 936 >nul");
-    SetConsoleTitleA("OPPO A57 Ë¢»ú¹¤¾ß");
+    SetConsoleTitleA("OPPO A57 åˆ·æœºå·¥å…·");
+    SetConsoleColor(COLOR_DEFAULT);
+
+    WaitDevice(0, "EDL(9008)");
     system("cls");
 
-    // »¶Ó­ÌáÊ¾
-    printf("==========================================\n");
-    printf("     OPPO A57 Ë¢»ú¹¤¾ß\n");
-    printf("[ÖØÒªÌáÊ¾]\n");
-    printf("1. Ë¢»ú½«ĞŞ¸ÄÉè±¸ÏµÍ³£¬¿ÉÄÜµ¼ÖÂÉè±¸³ÉÎª°å×©\n");
-    printf("2. Ë¢»úÇ°Çë±¸·İËùÓĞÖØÒªÊı¾İ\n");
-    printf("3. ×÷Õß²»¶ÔÊ¹ÓÃ±¾½Å±¾Ôì³ÉµÄÈÎºÎËğÊ§¸ºÔğ\n");
-    printf("==========================================\n");
-    printf("°´»Ø³µ¼ü½øĞĞÏÂÒ»²½\n\n");
-    SystemPause();
-    system("cls");
-
-    // ====================== µÚÒ»²½£º¼ì²éMD5ÖµÊÇ·ñÒÑÌîĞ´ ======================
-    printf("[½×¶Î1/9] ¼ì²éMD5ÅäÖÃ...\n");
+    printf("[é˜¶æ®µ1/9] æ£€æŸ¥MD5é…ç½®...\n");
     if (CheckMD5Empty())
     {
-        printf("\n[ÑÏÖØ´íÎó] È±ÉÙ±ØÒªµÄMD5ÅäÖÃ£¡\n");
-        printf("Çë±à¼­³ÌĞò£¬ÔÚMD5Ğ£ÑéÅäÖÃ²¿·ÖÌîĞ´ËùÓĞÎÄ¼şµÄÕıÈ·MD5Öµ\n");
+        printf("\n  [ä¸¥é‡é”™è¯¯] ç¼ºå°‘å¿…è¦çš„MD5é…ç½®ï¼\n");
+        printf("è¯·ç¼–è¾‘ç¨‹åºï¼Œåœ¨MD5æ ¡éªŒé…ç½®éƒ¨åˆ†å¡«å†™æ‰€æœ‰æ–‡ä»¶çš„æ­£ç¡®MD5å€¼\n");
         SystemPause();
         return 0;
     }
-    printf("[½×¶Î1/9] MD5ÅäÖÃ¼ì²éÍê³É\n\n");
+    printf("[é˜¶æ®µ1/9]  MD5é…ç½®æ£€æŸ¥å®Œæˆ\n\n");
 
-    // ====================== µÚ¶ş²½£º¼ì²é»ù´¡ÎÄ¼ş´æÔÚĞÔ ======================
-    printf("[½×¶Î2/9] ¼ì²é»ù´¡ÎÄ¼ş´æÔÚĞÔ...\n");
+    printf("[é˜¶æ®µ2/9] æ£€æŸ¥åŸºç¡€æ–‡ä»¶å­˜åœ¨æ€§...\n");
     if (!CheckFileExist(EDL_TOOL) ||
         !CheckFileExist(FIREHOSE_FILE) ||
         !CheckFileExist(RAWPROGRAM) ||
@@ -74,17 +205,15 @@ int main()
         !CheckFileExist("images\\recovery.img") ||
         !CheckFileExist("images\\emmc_appsboot.mbn"))
     {
-        RetryOrExit("½×¶Î2/9 »ù´¡ÎÄ¼ş¼ì²éÊ§°Ü");
+        RetryOrExit("é˜¶æ®µ2/9 åŸºç¡€æ–‡ä»¶æ£€æŸ¥å¤±è´¥");
         return 0;
     }
-    printf("[½×¶Î2/9] ËùÓĞ»ù´¡ÎÄ¼ş´æÔÚ\n\n");
+    printf("[é˜¶æ®µ2/9]  æ‰€æœ‰åŸºç¡€æ–‡ä»¶å­˜åœ¨\n\n");
 
-    // ====================== µÚÈı²½£ºÇ¿ÖÆMD5 Ğ£Ñé ======================
-    printf("[½×¶Î3/9] ¿ªÊ¼Ç¿ÖÆĞ£ÑéÎÄ¼şMD5ÍêÕûĞÔ...\n");
-    printf("¾¯¸æ£ºÈÎºÎÎÄ¼şMD5²»Æ¥Åä¶¼»áÁ¢¼´ÖÕÖ¹½Å±¾£¡\n\n");
-
+    printf("[é˜¶æ®µ3/9] å¼€å§‹å¼ºåˆ¶æ ¡éªŒæ–‡ä»¶MD5å®Œæ•´æ€§...\n");
+    printf("  è­¦å‘Šï¼šä»»ä½•æ–‡ä»¶MD5ä¸åŒ¹é…éƒ½ä¼šç«‹å³ç»ˆæ­¢è„šæœ¬ï¼\n\n");
     if (CheckMD5(EDL_TOOL, MD5_EDL, "edl.exe") ||
-        CheckMD5(FIREHOSE_FILE, MD5_FIREHOSE, "FirehoseÎÄ¼ş") ||
+        CheckMD5(FIREHOSE_FILE, MD5_FIREHOSE, "Firehoseæ–‡ä»¶") ||
         CheckMD5(RAWPROGRAM, MD5_RAWPROGRAM, "rawprogram0.xml") ||
         CheckMD5("images\\system.img", MD5_SYSTEM, "system.img") ||
         CheckMD5("images\\vendor.img", MD5_VENDOR, "vendor.img") ||
@@ -92,140 +221,133 @@ int main()
         CheckMD5("images\\recovery.img", MD5_RECOVERY, "recovery.img") ||
         CheckMD5("images\\emmc_appsboot.mbn", MD5_ABOOT, "emmc_appsboot.mbn"))
     {
-        RetryOrExit("½×¶Î3/9 MD5Ğ£ÑéÊ§°Ü");
+        RetryOrExit("é˜¶æ®µ3/9 MD5æ ¡éªŒå¤±è´¥");
         return 0;
     }
-
     printf("\n================================================\n");
-    printf("     ¡¾°²È«Í¨¹ı¡¿ËùÓĞÎÄ¼şMD5Ğ£ÑéÍêÈ«Æ¥Åä£¡\n");
+    printf("      ã€å®‰å…¨é€šè¿‡ã€‘æ‰€æœ‰æ–‡ä»¶MD5æ ¡éªŒå®Œå…¨åŒ¹é…ï¼\n");
     printf("================================================\n");
-    printf("ÎÄ¼şÍêÕûĞÔÈ·ÈÏÎŞÎó£¬¿ÉÒÔ°²È«½øĞĞË¢»ú\n");
+    printf("æ–‡ä»¶å®Œæ•´æ€§ç¡®è®¤æ— è¯¯ï¼Œå¯ä»¥å®‰å…¨è¿›è¡Œåˆ·æœº\n");
     printf("================================================\n");
-    printf("°´»Ø³µ¼ü½øĞĞÏÂÒ»²½\n\n");
+    printf("æŒ‰ä»»æ„é”®è¿›è¡Œä¸‹ä¸€æ­¥\n\n");
     SystemPause();
     system("cls");
 
-    // ====================== µÚËÄ²½£ºË¢Èëlk2nd ======================
 FLASH_LK2ND:
-    printf("[½×¶Î4/9] ×¼±¸Ë¢Èëlk2nd...\n");
-    printf("================================================\n");
-    printf("Ë¢»úÇ°È·ÈÏ£º\n");
-    printf("1. ÒÑ°²×°9008Çı¶¯\n");
-    printf("2. Éè±¸ÒÑÕıÈ·½øÈë9008Ä£Ê½\n");
-    printf("3. È·ÈÏFirehoseÎÄ¼şÆ¥Åä\n");
-    printf("4. Ê¹ÓÃUSB 2.0½Ó¿Ú\n");
-    printf("5. ¹Ø±ÕÕ¼ÓÃ¶Ë¿ÚµÄÈí¼ş\n");
-    printf("================================================\n");
-    printf("°´ÈÎÒâ¼ü¿ªÊ¼Ë¢Èëlk2nd...\n");
+printf("\n");
+printf("  â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•— â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•—â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•—  â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•— â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•— â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•—â–ˆâ–ˆâ•—  â–ˆâ–ˆâ•—â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•—\n");
+printf("  â–ˆâ–ˆâ•”â•â•â–ˆâ–ˆâ•—â–ˆâ–ˆâ•”â•â•â•â•â•â–ˆâ–ˆâ•”â•â•â–ˆâ–ˆâ•—â–ˆâ–ˆâ•”â•â•â–ˆâ–ˆâ•—â–ˆâ–ˆâ•”â•â•â–ˆâ–ˆâ•—â–ˆâ–ˆâ•”â•â•â•â•â•â–ˆâ–ˆâ•‘  â–ˆâ–ˆâ•‘â–ˆâ–ˆâ•”â•â•â•â•â•\n");
+printf("  â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•”â•â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•—  â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•”â•â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•‘â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•”â•â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•—  â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•‘â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•—  \n");
+printf("  â–ˆâ–ˆâ•”â•â•â–ˆâ–ˆâ•—â–ˆâ–ˆâ•”â•â•â•  â–ˆâ–ˆâ•”â•â•â–ˆâ–ˆâ•—â–ˆâ–ˆâ•”â•â•â–ˆâ–ˆâ•‘â–ˆâ–ˆâ•”â•â•â–ˆâ–ˆâ•—â–ˆâ–ˆâ•”â•â•â•  â–ˆâ–ˆâ•”â•â•â–ˆâ–ˆâ•‘â–ˆâ–ˆâ•”â•â•â•  \n");
+printf("  â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•”â•â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•—â–ˆâ–ˆâ•‘  â–ˆâ–ˆâ•‘â–ˆâ–ˆâ•‘  â–ˆâ–ˆâ•‘â–ˆâ–ˆâ•‘  â–ˆâ–ˆâ•‘â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•—â–ˆâ–ˆâ•‘  â–ˆâ–ˆâ•‘â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•—\n");
+printf("  â•šâ•â•â•â•â•â• â•šâ•â•â•â•â•â•â•â•šâ•â•  â•šâ•â•â•šâ•â•  â•šâ•â•â•šâ•â•  â•šâ•â•â•šâ•â•â•â•â•â•â•â•šâ•â•  â•šâ•â•â•šâ•â•â•â•â•â•â•\n");
+printf("\n");
+printf("  â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•— â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•— â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•—â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•—  â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•— â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•— â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•—â–ˆâ–ˆâ•—  â–ˆâ–ˆâ•—\n");
+printf("  â–ˆâ–ˆâ•”â•â•â–ˆâ–ˆâ•—â–ˆâ–ˆâ•”â•â•â–ˆâ–ˆâ•—â–ˆâ–ˆâ•”â•â•â•â•â•â–ˆâ–ˆâ•”â•â•â–ˆâ–ˆâ•—â–ˆâ–ˆâ•”â•â•â–ˆâ–ˆâ•—â–ˆâ–ˆâ•”â•â•â–ˆâ–ˆâ•—â–ˆâ–ˆâ•”â•â•â•â•â•â–ˆâ–ˆâ•‘  â–ˆâ–ˆâ•‘\n");
+printf("  â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•”â•â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•”â•â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•—  â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•”â•â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•‘â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•”â•â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•—  â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•‘â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•—  \n");
+printf("  â–ˆâ–ˆâ•”â•â•â•â• â–ˆâ–ˆâ•”â•â•â–ˆâ–ˆâ•—â–ˆâ–ˆâ•”â•â•â•  â–ˆâ–ˆâ•”â•â•â–ˆâ–ˆâ•—â–ˆâ–ˆâ•”â•â•â–ˆâ–ˆâ•‘â–ˆâ–ˆâ•”â•â•â–ˆâ–ˆâ•—â–ˆâ–ˆâ•”â•â•â•  â–ˆâ–ˆâ•”â•â•â–ˆâ–ˆâ•‘â–ˆâ–ˆâ•”â•â•â•  \n");
+printf("  â–ˆâ–ˆâ•‘     â–ˆâ–ˆâ•‘  â–ˆâ–ˆâ•‘â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•—â–ˆâ–ˆâ•‘  â–ˆâ–ˆâ•‘â–ˆâ–ˆâ•‘  â–ˆâ–ˆâ•‘â–ˆâ–ˆâ•‘  â–ˆâ–ˆâ•‘â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•—â–ˆâ–ˆâ•‘  â–ˆâ–ˆâ•‘â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ•—\n");
+printf("  â•šâ•â•     â•šâ•â•  â•šâ•â•â•šâ•â•â•â•â•â•â•â•šâ•â•  â•šâ•â•â•šâ•â•  â•šâ•â•â•šâ•â•  â•šâ•â•â•šâ•â•â•â•â•â•â•â•šâ•â•  â•šâ•â•â•šâ•â•â•â•â•â•â•\n");
+printf("\n");
+printf("-----------------------------------------------------------\n");
+printf("  [é˜¶æ®µ4/9] å‡†å¤‡åˆ·å…¥lk2nd...\n");
+printf("  æŒ‰ä»»æ„é”®å¼€å§‹åˆ·å…¥lk2nd\n");
+printf("-----------------------------------------------------------\n\n");
     SystemPause();
-
-    printf("[½×¶Î4/9] ¿ªÊ¼Ë¢Èëlk2nd...\n");
+    printf("[é˜¶æ®µ4/9] å¼€å§‹åˆ·å…¥lk2nd...\n");
     char cmd[512];
     sprintf(cmd, "%s --loader %s rawprogram %s", EDL_TOOL, FIREHOSE_FILE, RAWPROGRAM);
     int ret = system(cmd);
     if (ret != 0)
     {
-        printf("[´íÎó] lk2ndË¢ÈëÊ§°Ü\n");
-        if (RetryOrExit("½×¶Î4/9 lk2ndË¢ÈëÊ§°Ü"))
+        printf("\n  [é”™è¯¯] lk2ndåˆ·å…¥å¤±è´¥\n");
+        if (RetryOrExit("é˜¶æ®µ4/9 lk2ndåˆ·å…¥å¤±è´¥"))
             goto FLASH_LK2ND;
         else
             return 0;
     }
-
-    printf("[½×¶Î4/9] lk2ndË¢Èë³É¹¦\n");
+    printf("[é˜¶æ®µ4/9]  lk2ndåˆ·å…¥æˆåŠŸ\n");
     system(EDL_TOOL" reset");
-    printf("Éè±¸½«×Ô¶¯ÖØÆô£¬ÇëµÈ´ı½øÈëfastbootÄ£Ê½...\n\n");
+    printf("è®¾å¤‡å°†è‡ªåŠ¨é‡å¯ï¼Œè¯·ç­‰å¾…è¿›å…¥fastbootæ¨¡å¼...\n\n");
 
-    // ====================== µÚÎå²½£º¼ì²éLineageOSË¢»úÎÄ¼ş ======================
-    printf("[½×¶Î5/9] ¼ì²éLineageOSË¢»úÎÄ¼ş...\n");
-    printf("(ÎÄ¼şÒÑÔÚMD5Ğ£Ñé½×¶ÎÈ·ÈÏ´æÔÚÇÒÍêÕû)\n\n");
+    WaitDevice(1, "Fastboot");
+    system("cls");
 
-    // ====================== µÚÁù²½£º×Ô¶¯¼ì²âfastbootÉè±¸ ======================
+    printf("[é˜¶æ®µ5/9] æ£€æŸ¥LineageOSåˆ·æœºæ–‡ä»¶...\n");
+    printf("(æ–‡ä»¶å·²åœ¨MD5æ ¡éªŒé˜¶æ®µç¡®è®¤å­˜åœ¨ä¸”å®Œæ•´)\n\n");
+
     if (!DetectFastboot(30))
     {
-        printf("[´íÎó] Î´¼ì²âµ½fastbootÉè±¸\n");
+        printf("\n  [é”™è¯¯] æœªæ£€æµ‹åˆ°fastbootè®¾å¤‡\n");
+        printf("è¯·ç¡®ä¿è®¾å¤‡å·²è¿›å…¥Fastbootæ¨¡å¼å¹¶é‡æ–°è¿æ¥USB\n");
+        SystemPause();
         return 0;
     }
 
-    // ====================== µÚÆß²½£ºÈ·ÈÏË¢»ú ======================
     char confirm[10];
 CONFIRM:
-    printf("ÇëÊäÈë YES È·ÈÏ¼ÌĞøË¢»ú£¨Êı¾İ½«»áÇå¿Õ£©£º");
+    printf("è­¦å‘Šï¼šç»§ç»­æ“ä½œå°†æ¸…ç©ºæ‰‹æœºæ‰€æœ‰æ•°æ®ï¼\n");
+    printf("è¯·è¾“å…¥ YES ç¡®è®¤ç»§ç»­åˆ·æœºï¼š");
     fgets(confirm, sizeof(confirm), stdin);
     confirm[strcspn(confirm, "\n")] = 0;
-
     if (_stricmp(confirm, "YES") != 0)
     {
-        printf("ÓÃ»§È¡Ïû²Ù×÷\n");
+        printf("ç”¨æˆ·å–æ¶ˆæ“ä½œ\n");
         SystemPause();
         return 0;
     }
     printf("\n");
 
-    // ====================== µÚ°Ë²½£ºË¢ÈëÏµÍ³¾µÏñ ======================
 FLASH_IMAGES:
-    printf("[½×¶Î7/9] ¿ªÊ¼Ë¢ÈëÏµÍ³¾µÏñ...\n");
-
-    // flash system
+    printf("[é˜¶æ®µ7/9] å¼€å§‹åˆ·å…¥ç³»ç»Ÿé•œåƒ...\n");
     ret = system(FASTBOOT_TOOL" flash system images\\system.img");
-    if (ret) { printf("[´íÎó] systemË¢ÈëÊ§°Ü\n"); RetryOrExit("systemË¢ÈëÊ§°Ü"); goto FLASH_IMAGES; }
-    printf("[³É¹¦] system¾µÏñË¢ÈëÍê³É\n\n");
+    if (ret) { printf("\n  [é”™è¯¯] systemåˆ·å…¥å¤±è´¥\n"); RetryOrExit("systemåˆ·å…¥å¤±è´¥"); goto FLASH_IMAGES; }
+    printf("[æˆåŠŸ] systemé•œåƒåˆ·å…¥å®Œæˆ\n\n");
 
-    // flash vendor
     ret = system(FASTBOOT_TOOL" flash oem images\\vendor.img");
-    if (ret) { printf("[´íÎó] vendorË¢ÈëÊ§°Ü\n"); RetryOrExit("vendorË¢ÈëÊ§°Ü"); goto FLASH_IMAGES; }
-    printf("[³É¹¦] vendor¾µÏñË¢ÈëÍê³É\n\n");
+    if (ret) { printf("\n  [é”™è¯¯] vendoråˆ·å…¥å¤±è´¥\n"); RetryOrExit("vendoråˆ·å…¥å¤±è´¥"); goto FLASH_IMAGES; }
+    printf("[æˆåŠŸ] vendoré•œåƒåˆ·å…¥å®Œæˆ\n\n");
 
-    // flash aboot
     ret = system(FASTBOOT_TOOL" flash aboot images\\emmc_appsboot.mbn");
-    if (ret) { printf("[´íÎó] abootË¢ÈëÊ§°Ü\n"); RetryOrExit("abootË¢ÈëÊ§°Ü"); goto FLASH_IMAGES; }
-    printf("[³É¹¦] abootË¢ÈëÍê³É\n\n");
+    if (ret) { printf("\n  [é”™è¯¯] abootåˆ·å…¥å¤±è´¥\n"); RetryOrExit("abootåˆ·å…¥å¤±è´¥"); goto FLASH_IMAGES; }
+    printf("[æˆåŠŸ] abootåˆ·å…¥å®Œæˆ\n\n");
 
-    // flash recovery
     ret = system(FASTBOOT_TOOL" flash recovery images\\recovery.img");
-    if (ret) { printf("[´íÎó] recoveryË¢ÈëÊ§°Ü\n"); RetryOrExit("recoveryË¢ÈëÊ§°Ü"); goto FLASH_IMAGES; }
-    printf("[³É¹¦] recovery¾µÏñË¢ÈëÍê³É\n\n");
+    if (ret) { printf("\n  [é”™è¯¯] recoveryåˆ·å…¥å¤±è´¥\n"); RetryOrExit("recoveryåˆ·å…¥å¤±è´¥"); goto FLASH_IMAGES; }
+    printf("[æˆåŠŸ] recoveryé•œåƒåˆ·å…¥å®Œæˆ\n\n");
 
-    // flash boot
     ret = system(FASTBOOT_TOOL" flash boot images\\boot.img");
-    if (ret) { printf("[´íÎó] bootË¢ÈëÊ§°Ü\n"); RetryOrExit("bootË¢ÈëÊ§°Ü"); goto FLASH_IMAGES; }
-    printf("[³É¹¦] boot¾µÏñË¢ÈëÍê³É\n\n");
+    if (ret) { printf("\n  [é”™è¯¯] bootåˆ·å…¥å¤±è´¥\n"); RetryOrExit("bootåˆ·å…¥å¤±è´¥"); goto FLASH_IMAGES; }
+    printf("[æˆåŠŸ] booté•œåƒåˆ·å…¥å®Œæˆ\n\n");
 
-    // ====================== µÚ¾Å²½£ºÇå³ı·ÖÇø ======================
 ERASE:
-    printf("[½×¶Î8/9] Çå³ıcache·ÖÇø...\n");
+    printf("[é˜¶æ®µ8/9] æ¸…é™¤cacheåˆ†åŒº...\n");
     ret = system(FASTBOOT_TOOL" erase cache");
-    if (ret) { printf("[´íÎó] cacheÇå³ıÊ§°Ü\n"); RetryOrExit("cacheÇå³ıÊ§°Ü"); goto ERASE; }
-
-    printf("[½×¶Î8/9] Çå³ıuserdata·ÖÇø...\n");
+    if (ret) { printf("\n  [é”™è¯¯] cacheæ¸…é™¤å¤±è´¥\n"); RetryOrExit("cacheæ¸…é™¤å¤±è´¥"); goto ERASE; }
+    printf("[é˜¶æ®µ8/9] æ¸…é™¤userdataåˆ†åŒº...\n");
     ret = system(FASTBOOT_TOOL" erase userdata");
-    if (ret) { printf("[´íÎó] userdataÇå³ıÊ§°Ü\n"); RetryOrExit("userdataÇå³ıÊ§°Ü"); goto ERASE; }
-    printf("[³É¹¦] ·ÖÇøÇåÀíÍê³É\n\n");
+    if (ret) { printf("\n  [é”™è¯¯] userdataæ¸…é™¤å¤±è´¥\n"); RetryOrExit("userdataæ¸…é™¤å¤±è´¥"); goto ERASE; }
+    printf("[æˆåŠŸ] åˆ†åŒºæ¸…ç†å®Œæˆ\n\n");
 
-    // ====================== µÚÊ®²½£ºÖØÆô²¢¼ì²âADB ======================
-    printf("[½×¶Î9/9] ÖØÆôÉè±¸...\n");
+    printf("[é˜¶æ®µ9/9] é‡å¯è®¾å¤‡...\n");
     system(FASTBOOT_TOOL" reboot");
-    printf("Éè±¸ÕıÔÚÖØÆô£¬µÈ´ıADBÁ¬½Ó(15·ÖÖÓ³¬Ê±)...\n\n");
+    printf("è®¾å¤‡æ­£åœ¨é‡å¯ï¼Œç­‰å¾…ADBè¿æ¥ï¼ˆé¦–æ¬¡å¼€æœºå¯èƒ½éœ€è¦3-5åˆ†é’Ÿï¼‰...\n\n");
 
-    if (!DetectADB(900))
-    {
-        printf("[´íÎó] ADBÉè±¸Á¬½Ó³¬Ê±\n");
-        return 0;
-    }
+    WaitDevice(2, "ADB(USBè°ƒè¯•)");
+    system("cls");
 
-    // ĞŞ¸´WiFiºÍÊ±¼ä
     FixWifiAndTime();
 
-    // Íê³É
     printf("\n==========================================\n");
-    printf("              È«²¿²Ù×÷Íê³É\n");
+    printf("               å…¨éƒ¨æ“ä½œå®Œæˆ\n");
     printf("==========================================\n");
-    printf("°´ÈÎÒâ¼üÍË³ö...\n");
+    printf("OPPO A57 ï¼ˆ2016ï¼‰ åˆ·æœºæˆåŠŸï¼\n");
+    printf("==========================================\n");
+    printf("æŒ‰ä»»æ„é”®é€€å‡º...\n");
     SystemPause();
     return 0;
 }
 
-// ¼ì²éÎÄ¼şÊÇ·ñ´æÔÚ
 int CheckFileExist(const char* path)
 {
     FILE* f = fopen(path, "rb");
@@ -234,11 +356,10 @@ int CheckFileExist(const char* path)
         fclose(f);
         return 1;
     }
-    printf("[´íÎó] Î´ÕÒµ½ÎÄ¼ş£º%s\n", path);
+    printf("  [é”™è¯¯] æœªæ‰¾åˆ°æ–‡ä»¶ï¼š%s\n", path);
     return 0;
 }
 
-// ¼ì²éMD5ÊÇ·ñÎª¿Õ
 int CheckMD5Empty()
 {
     if (!strcmp(MD5_EDL, "") || !strcmp(MD5_FIREHOSE, "") || !strcmp(MD5_RAWPROGRAM, "") ||
@@ -250,45 +371,35 @@ int CheckMD5Empty()
     return 0;
 }
 
-// MD5Ğ£Ñé
 int CheckMD5(const char* filePath, const char* expectMD5, const char* desc)
 {
     if (!_stricmp(desc, "system.img"))
-        printf("[ÌáÊ¾] ÕıÔÚĞ£Ñé %s (½Ï´ó£¬ÇëµÈ´ı)...\n", desc);
+        printf("[æç¤º] æ­£åœ¨æ ¡éªŒ %s (è¾ƒå¤§ï¼Œè¯·è€å¿ƒç­‰å¾…)...\n", desc);
     else
-        printf("[ÌáÊ¾] ÕıÔÚĞ£Ñé %s...\n", desc);
-
+        printf("[æç¤º] æ­£åœ¨æ ¡éªŒ %s...\n", desc);
     char cmd[512];
     sprintf(cmd, "CertUtil -hashfile \"%s\" MD5 2>&1", filePath);
-
     FILE* fp = _popen(cmd, "r");
     if (!fp)
     {
-        printf("[´íÎó] ÎŞ·¨Ö´ĞĞMD5Ğ£ÑéÃüÁî\n");
+        printf("  [é”™è¯¯] æ— æ³•æ‰§è¡ŒMD5æ ¡éªŒå‘½ä»¤\n");
         return 1;
     }
-
     char line[1024];
     char realMD5[64] = {0};
     int md5Len = 0;
-
-    // µÚÒ»ĞĞ£º±êÌâĞĞ
     if (fgets(line, sizeof(line), fp) == NULL)
     {
         _pclose(fp);
-        printf("[´íÎó] ¶ÁÈ¡MD5Êä³öÊ§°Ü\n");
+        printf("  [é”™è¯¯] è¯»å–MD5è¾“å‡ºå¤±è´¥\n");
         return 1;
     }
-
-    // µÚ¶şĞĞ£ºÕæÕıµÄMD5ÖµĞĞ
     if (fgets(line, sizeof(line), fp) == NULL)
     {
         _pclose(fp);
-        printf("[´íÎó] Î´ÕÒµ½MD5ÖµĞĞ\n");
+        printf("  [é”™è¯¯] æœªæ‰¾åˆ°MD5å€¼è¡Œ\n");
         return 1;
     }
-
-    // Ö»´ÓµÚ¶şĞĞÌáÈ¡Ê®Áù½øÖÆ×Ö·û
     for (int i = 0; line[i] && md5Len < 32; i++)
     {
         if (isxdigit((unsigned char)line[i]))
@@ -296,105 +407,80 @@ int CheckMD5(const char* filePath, const char* expectMD5, const char* desc)
             realMD5[md5Len++] = tolower((unsigned char)line[i]);
         }
     }
-
     _pclose(fp);
-
-    // ¼ì²éÊÇ·ñ³É¹¦»ñÈ¡µ½32Î»MD5
     if (md5Len != 32)
     {
-        printf("[´íÎó] ÎŞ·¨»ñÈ¡ %s µÄÓĞĞ§MD5Öµ\n", desc);
+        printf("  [é”™è¯¯] æ— æ³•è·å– %s çš„æœ‰æ•ˆMD5å€¼\n", desc);
         return 1;
     }
-
-    // ²»Çø·Ö´óĞ¡Ğ´±È½Ï
     if (!_stricmp(realMD5, expectMD5))
     {
-        printf("[³É¹¦] %s MD5Ğ£ÑéÍ¨¹ı\n", desc);
+        printf("  [æˆåŠŸ] %s MD5æ ¡éªŒé€šè¿‡\n", desc);
         return 0;
     }
     else
     {
-        printf("[Ê§°Ü] %s MD5²»Æ¥Åä\n", desc);
-        printf("  Ô¤ÆÚ£º%s\n  Êµ¼Ê£º%s\n", expectMD5, realMD5);
+        printf("  [å¤±è´¥] %s MD5ä¸åŒ¹é…\n", desc);
+        printf("  é¢„æœŸï¼š%s\n  å®é™…ï¼š%s\n", expectMD5, realMD5);
         return 1;
     }
 }
 
-// ÖØÊÔ»òÍË³ö
 int RetryOrExit(const char* errorStage)
 {
-    printf("\n====================== ´íÎó´¦Àí ======================\n");
-    printf("Ê§°Ü½×¶Î£º%s\n", errorStage);
-    printf("ÇëÑ¡Ôñ²Ù×÷ [1=ÖØĞÂ³¢ÊÔ 2=ÍË³ö½Å±¾]£º");
+    printf("\n====================== é”™è¯¯å¤„ç† ======================\n");
+    printf("å¤±è´¥é˜¶æ®µï¼š%s\n", errorStage);
+    printf("è¯·é€‰æ‹©æ“ä½œ [1=é‡æ–°å°è¯• 2=é€€å‡ºè„šæœ¬]ï¼š");
     char c[10];
     fgets(c, sizeof(c), stdin);
     c[strcspn(c, "\n")] = 0;
-
     if (c[0] == '1') return 1;
     return 0;
 }
 
-// ¼ì²âfastboot
 int DetectFastboot(int timeoutSec)
 {
-    printf("[½×¶Î6/9] ¼ì²âfastbootÉè±¸(%dÃë³¬Ê±)...\n", timeoutSec);
     int cnt = 0;
     while (cnt < timeoutSec)
     {
-        printf("Ê£Óà£º%dÃë\n", timeoutSec - cnt);
         if (!system(FASTBOOT_TOOL" devices | findstr \"fastboot\" >nul"))
-        {
-            printf("[½×¶Î6/9] Éè±¸ÒÑÁ¬½Ó\n\n");
             return 1;
-        }
         Sleep(1000);
         cnt++;
     }
     return 0;
 }
 
-// ¼ì²âADB
 int DetectADB(int timeoutSec)
 {
-    printf("[½×¶Î9/9] ¼ì²âADBÉè±¸...\n");
     int cnt = 0;
     while (cnt < timeoutSec)
     {
-        printf("µÈ´ı£º%d/%dÃë\n", cnt, timeoutSec);
         if (!system(ADB_TOOL" devices | findstr /r \"device$\" >nul"))
-        {
-            printf("[³É¹¦] ADBÉè±¸ÒÑÁ¬½Ó\n\n");
             return 1;
-        }
         Sleep(1000);
         cnt++;
     }
     return 0;
 }
 
-// ĞŞ¸´WiFiĞ¡²æ+Ê±¼äÍ¬²½
 void FixWifiAndTime()
 {
-    printf("[ºóĞø] ¿ªÊ¼ĞŞ¸´WiFiĞ¡²æºÍÊ±¼äÍ¬²½...\n\n");
-    system(ADB_TOOL" start-server");
-
-    printf("Çå³ıÍøÂçÑéÖ¤ÅäÖÃ...\n");
+    printf("[åç»­] å¼€å§‹ä¿®å¤WiFiå°å‰å’Œæ—¶é—´åŒæ­¥é—®é¢˜...\n\n");
+    system(ADB_TOOL" start-server >nul 2>&1");
+    printf("æ¸…é™¤åŸæœ‰ç½‘ç»œéªŒè¯é…ç½®...\n");
     system(ADB_TOOL" shell settings delete global captive_portal_https_url >nul 2>&1");
     system(ADB_TOOL" shell settings delete global captive_portal_http_url >nul 2>&1");
-
-    printf("ÉèÖÃĞ¡Ã×ÑéÖ¤·şÎñÆ÷...\n");
+    printf("è®¾ç½®å°ç±³ç½‘ç»œéªŒè¯æœåŠ¡å™¨...\n");
     system(ADB_TOOL" shell settings put global captive_portal_http_url http://connect.rom.miui.com/generate_204");
     system(ADB_TOOL" shell settings put global captive_portal_https_url https://connect.rom.miui.com/generate_204");
-
-    printf("ÉèÖÃ°¢ÀïÔÆNTP...\n");
+    printf("è®¾ç½®é˜¿é‡Œäº‘NTPæ—¶é—´æœåŠ¡å™¨...\n");
     system(ADB_TOOL" shell settings put global ntp_server ntp1.aliyun.com");
     system(ADB_TOOL" shell settings put global auto_time 1");
     system(ADB_TOOL" shell settings put global auto_time_zone 1");
-
-    printf("[Íê³É] WiFiÓëÊ±¼äĞŞ¸´Íê±Ï\n");
+    printf("\n  [å®Œæˆ] WiFiä¸æ—¶é—´ä¿®å¤å®Œæ¯•\n");
 }
 
-// °´»Ø³µ¼ÌĞø
 void SystemPause()
 {
     system("pause >nul");
