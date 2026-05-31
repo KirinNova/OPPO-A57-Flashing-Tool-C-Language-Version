@@ -30,6 +30,7 @@ int RetryOrExit(const char* errorStage);
 int DetectFastboot(int timeoutSec);
 int DetectADB(int timeoutSec);
 int DetectEDL();
+int DetectMissingDriverEDL();
 void WaitDevice(int type, const char* name);
 void FixWifiAndTime();
 void SystemPause();
@@ -60,29 +61,47 @@ void SetConsoleColor(WORD color)
 int DetectEDL()
 {
     char buf[1024] = {0};
-    FILE* fp = _popen("wmic path Win32_PnPEntity get Name 2>nul", "r");
+    int found = 0;
+    FILE* fp = _popen("powershell -NoProfile -ExecutionPolicy Bypass -Command \"Get-CimInstance Win32_PnPEntity | Where-Object { $_.HardwareID -match 'USB\\\\VID_05C6&PID_9008' } | Select-Object -ExpandProperty Status\"", "r");
     if (fp)
     {
         while (fgets(buf, sizeof(buf), fp))
         {
-            if (strstr(buf, "Qualcomm HS-USB QDLoader 9008") || 
-                strstr(buf, "QDLoader 9008") ||
-                strstr(buf, "9008"))
+            if (strstr(buf, "OK"))
             {
-                _pclose(fp);
-                return 1;
+                found = 1;
+                break;
             }
         }
         _pclose(fp);
     }
-    int ret = system(EDL_TOOL" -p >nul 2>&1");
-    return (ret == 0);
+    return found;
+}
+
+int DetectMissingDriverEDL()
+{
+    char buf[1024] = {0};
+    int found = 0;
+    FILE* fp = _popen("powershell -NoProfile -ExecutionPolicy Bypass -Command \"Get-CimInstance Win32_PnPEntity | Where-Object { $_.ConfigManagerUserConfig -eq $false -and ($_.DeviceID -match 'USB\\\\VID_05C6' -or $_.HardwareID -match 'QUSB_BULK' -or $_.HardwareID -match 'VID_05C6&PID_9008' -or $_.Service -match 'qcusbser') } | Select-Object -ExpandProperty DeviceID\"", "r");
+    if (fp)
+    {
+        while (fgets(buf, sizeof(buf), fp))
+        {
+            if (strstr(buf, "USB\\"))
+            {
+                found = 1;
+                break;
+            }
+        }
+        _pclose(fp);
+    }
+    return found;
 }
 
 void ClearCurrentLine()
 {
     printf("\r");
-    for (int i = 0; i < 80; i++) printf(" ");
+    for (int i = 0; i < 79; i++) printf(" ");
     printf("\r");
 }
 
@@ -106,21 +125,7 @@ void WaitDevice(int type, const char* name)
             ok = DetectEDL();
             if (!ok)
             {
-                FILE* fp = _popen("wmic path Win32_PnPEntity get Name 2>nul", "r");
-                if (fp)
-                {
-                    char buf[1024];
-                    while (fgets(buf, sizeof(buf), fp))
-                    {
-                        if (strstr(buf, "PCI数据捕获和信号处理控制器") || 
-                            strstr(buf, "未知设备"))
-                        {
-                            currentDriverState = 1;
-                            break;
-                        }
-                    }
-                    _pclose(fp);
-                }
+                currentDriverState = DetectMissingDriverEDL();
             }
         }
         else if (type == 1) ok = DetectFastboot(1);
@@ -234,25 +239,25 @@ int main()
     system("cls");
 
 FLASH_LK2ND:
-printf("\n");
-printf("  ██████╗ ███████╗██████╗  █████╗ ██████╗ ███████╗██╗  ██╗███████╗\n");
-printf("  ██╔══██╗██╔════╝██╔══██╗██╔══██╗██╔══██╗██╔════╝██║  ██║██╔════╝\n");
-printf("  ██████╔╝█████╗  ██████╔╝███████║██████╔╝█████╗  ███████║█████╗  \n");
-printf("  ██╔══██╗██╔══╝  ██╔══██╗██╔══██║██╔══██╗██╔══╝  ██╔══██║██╔══╝  \n");
-printf("  ██████╔╝███████╗██║  ██║██║  ██║██║  ██║███████╗██║  ██║███████╗\n");
-printf("  ╚═════╝ ╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚══════╝\n");
-printf("\n");
-printf("  ██████╗ ██████╗ ███████╗██████╗  █████╗ ██████╗ ███████╗██╗  ██╗\n");
-printf("  ██╔══██╗██╔══██╗██╔════╝██╔══██╗██╔══██╗██╔══██╗██╔════╝██║  ██║\n");
-printf("  ██████╔╝██████╔╝█████╗  ██████╔╝███████║██████╔╝█████╗  ███████║█████╗  \n");
-printf("  ██╔═══╝ ██╔══██╗██╔══╝  ██╔══██╗██╔══██║██╔══██╗██╔══╝  ██╔══██║██╔══╝  \n");
-printf("  ██║     ██║  ██║███████╗██║  ██║██║  ██║██║  ██║███████╗██║  ██║███████╗\n");
-printf("  ╚═╝     ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚══════╝\n");
-printf("\n");
-printf("-----------------------------------------------------------\n");
-printf("  [阶段4/9] 准备刷入lk2nd...\n");
-printf("  按任意键开始刷入lk2nd\n");
-printf("-----------------------------------------------------------\n\n");
+    printf("\n");
+    printf("  ██████╗ ███████╗██████╗  █████╗ ██████╗ ███████╗██╗  ██╗███████╗\n");
+    printf("  ██╔══██╗██╔════╝██╔══██╗██╔══██╗██╔══██╗██╔════╝██║  ██║██╔════╝\n");
+    printf("  ██████╔╝█████╗  ██████╔╝███████║██████╔╝█████╗  ███████║█████╗  \n");
+    printf("  ██╔══██╗██╔══╝  ██╔══██╗██╔══██║██╔══██╗██╔══╝  ██╔══██║██╔══╝\n");
+    printf("  ██████╔╝███████╗██║  ██║██║  ██║██║  ██║███████╗██║  ██║███████╗\n");
+    printf("  ╚═════╝ ╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚══════╝\n");
+    printf("\n");
+    printf("  ██████╗ ██████╗ ███████╗██████╗  █████╗ ██████╗ ███████╗██╗  ██╗\n");
+    printf("  ██╔══██╗██╔══██╗██╔════╝██╔══██╗██╔══██╗██╔══██╗██╔════╝██║  ██║\n");
+    printf("  ██████╔╝██████╔╝█████╗  ██████╔╝███████║██████╔╝█████╗  ███████║█████╗  \n");
+    printf("  ██╔═══╝ ██╔══██╗██╔══╝  ██╔══██╗██╔══██║██╔══██╗██╔══╝  ██╔══██║██╔══╝  \n");
+    printf("  ██║     ██║  ██║███████╗██║  ██║██║  ██║██║  ██║███████╗██║  ██║███████╗\n");
+    printf("  ╚═╝     ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚══════╝\n");
+    printf("\n");
+    printf("-----------------------------------------------------------\n");
+    printf("  [阶段4/9] 准备刷入lk2nd...\n");
+    printf("  按任意键开始刷入lk2nd\n");
+    printf("-----------------------------------------------------------\n\n");
     SystemPause();
     printf("[阶段4/9] 开始刷入lk2nd...\n");
     char cmd[512];
@@ -292,9 +297,8 @@ CONFIRM:
     confirm[strcspn(confirm, "\n")] = 0;
     if (_stricmp(confirm, "YES") != 0)
     {
-        printf("用户取消操作\n");
-        SystemPause();
-        return 0;
+        printf("输入不正确或用户取消操作，请重新确认。\n");
+        goto CONFIRM;
     }
     printf("\n");
 
@@ -339,7 +343,7 @@ ERASE:
     FixWifiAndTime();
 
     printf("\n==========================================\n");
-    printf("               全部操作完成\n");
+    printf("                全部操作完成\n");
     printf("==========================================\n");
     printf("OPPO A57 （2016） 刷机成功！\n");
     printf("==========================================\n");
